@@ -9,6 +9,7 @@ sqlalchemy = "*"
 alembic = "*"
 psycopg2 = "*"
 bcrypt = "*"
+websockets = "*"
 
 [dev-packages]
 
