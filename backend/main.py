@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -6,29 +7,32 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Annotated
 import bcrypt
 import models
-from database import engine, SessionLocal
+from database import Base, engine, AsyncSession
 from sqlalchemy.orm import Session
 import schemas
 
 app = FastAPI()
-models.Base.metadata.create_all(bind=engine)
 
-# app.include_router(users.router)
+
+async def init_models():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
 
 
 def get_db():
-    db = SessionLocal()
+    db = AsyncSession()
     try:
         yield db
     finally:
         db.close()
 
 
-db_dependency = Annotated[Session, Depends(get_db)]
+db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
 
 @app.post("/login/")
-def login(username: str, password: str, db: Session = Depends(get_db)):
+def login(username: str, password: str, db: AsyncSession = Depends(get_db)):
     user = db.query(models.User).filter(
         models.User.username == username).first()
     if not user:
@@ -47,7 +51,7 @@ def login(username: str, password: str, db: Session = Depends(get_db)):
 
 
 @app.post("/register/", response_model=schemas.User)
-def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+def register_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
     if not user.email or not user.username or not user.password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -64,7 +68,8 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         )
     salt = bcrypt.gensalt()
     try:
-        hashed_password = bcrypt.hashpw(user.password.encode("utf-8"), salt)
+        hashed_password: bytes = bcrypt.hashpw(
+            user.password.encode("utf-8"), salt)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
