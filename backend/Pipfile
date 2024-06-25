@@ -10,6 +10,8 @@ alembic = "*"
 psycopg2 = "*"
 bcrypt = "*"
 websockets = "*"
+fastapi-users = {extras = ["sqlalchemy"], version = "*"}
+asyncpg = "*"
 
 [dev-packages]
 
